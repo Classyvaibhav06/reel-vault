@@ -38,8 +38,9 @@ export default function SaveReelForm({ onSuccess }: SaveReelFormProps) {
 
       // Clear success message after 3 seconds
       setTimeout(() => setStatus(null), 3000);
-    } catch (err: any) {
-      setStatus({ type: 'error', message: err.message || 'Something went wrong' });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
+      setStatus({ type: 'error', message: errorMessage });
     } finally {
       setIsSaving(false);
     }

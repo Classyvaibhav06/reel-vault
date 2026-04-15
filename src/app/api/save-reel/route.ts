@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { connectToDatabase, ReelModel, Reel } from '@/lib/mongodb';
+import { connectToDatabase, ReelModel } from '@/lib/mongodb';
 
 export async function POST(req: Request) {
   try {
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       if (ogTitle) fetchedTitle = decode(ogTitle);
       if (ogDescription) fetchedCaption = decode(ogDescription);
       if (ogImage) fetchedThumbnail = ogImage.replace(/&amp;/g, '&');
-    } catch (e) {
+    } catch (_e) {
       console.error('Fetch error:', e);
     }
 
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
             const result = await model.generateContent(prompt);
             aiResult = result.response.text();
             if (aiResult) break;
-          } catch (e) { }
+          } catch (_e) { }
         }
 
         const jsonMatch = aiResult?.match(/\{[\s\S]*\}/);
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
           if (parsed.tags) tags = [...parsed.tags, 'ai-ready']; // Add marker
           if (parsed.caption) caption = parsed.caption;
         }
-      } catch (e) {
+      } catch (_e) {
         console.error('AI Error:', e);
       }
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ExternalLink, Play, Calendar, Tag, Trash2, Loader2 } from 'lucide-react';
+import { Play, Calendar, Trash2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Reel } from '@/lib/mongodb';
 
@@ -56,6 +56,7 @@ const ReelCard: React.FC<ReelCardProps> = ({ reel, onDelete }) => {
       {/* ── Thumbnail Section (9:16 Aspect) ────────────────────── */}
       <div className="relative aspect-[9/16] overflow-hidden bg-zinc-950 flex-shrink-0">
         {!imgError ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={reel.thumbnail}
             alt={reel.title}
