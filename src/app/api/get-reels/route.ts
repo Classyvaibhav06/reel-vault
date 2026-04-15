@@ -10,7 +10,7 @@ export async function GET() {
     const docs = await ReelModel.find({}).sort({ created_at: -1 }).lean();
 
     interface RawDoc {
-      _id: any;
+      _id: { toString(): string };
       url: string;
       title: string;
       caption?: string;
@@ -50,7 +50,7 @@ export async function GET() {
         id:         doc._id.toString(),
         url:        doc.url,
         title:      doc.title,
-        caption:    doc.caption,
+        caption:    doc.caption || '',
         category:   category,
         thumbnail:  doc.thumbnail,
         tags:       doc.tags,

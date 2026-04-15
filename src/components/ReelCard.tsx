@@ -82,7 +82,7 @@ const ReelCard: React.FC<ReelCardProps> = ({ reel, onDelete }) => {
         <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-30">
           <div className="flex flex-col gap-2">
             {(() => {
-              const styles = {
+              const styles: Record<string, string> = {
                 Coding: 'bg-blue-600/90 text-white',
                 Movies: 'bg-red-600/90 text-white',
                 Funny: 'bg-yellow-500/90 text-black',
@@ -90,10 +90,12 @@ const ReelCard: React.FC<ReelCardProps> = ({ reel, onDelete }) => {
                 Lifestyle: 'bg-pink-600/90 text-white',
                 Gaming: 'bg-indigo-600/90 text-white',
                 Other: 'bg-zinc-600/90 text-white',
-              }[reel.category as keyof typeof styles] || 'bg-purple-600/90 text-white';
+              };
+
+              const badgeColor = styles[reel.category] || 'bg-purple-600/90 text-white';
 
               return (
-                <span className={`px-2.5 py-1 rounded-lg backdrop-blur-md text-[9px] font-black uppercase tracking-wider shadow-2xl border border-white/10 ${styles}`}>
+                <span className={`px-2.5 py-1 rounded-lg backdrop-blur-md text-[9px] font-black uppercase tracking-wider shadow-2xl border border-white/10 ${badgeColor}`}>
                   {reel.category}
                 </span>
               );
