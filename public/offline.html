@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline — Reel Vault</title>
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', ui-sans-serif, sans-serif;
+      background: #0f0f0f;
+      color: #fff;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(236,72,153,0.3));
+      border: 1px solid rgba(168,85,247,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #a855f7, #ec4899, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      color: #a1a1aa;
+      font-size: 0.95rem;
+      max-width: 320px;
+      margin: 0 auto 2rem;
+      line-height: 1.6;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      background: linear-gradient(135deg, #a855f7, #ec4899, #f97316);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(168,85,247,0.35);
+      text-decoration: none;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(168,85,247,0.45); }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      max-width: 360px;
+      margin-top: 1.5rem;
+    }
+    .card p { margin-bottom: 0; color: #71717a; font-size: 0.8rem; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(168,85,247,0.35); }
+      50% { box-shadow: 0 0 25px rgba(168,85,247,0.5), 0 0 50px rgba(168,85,247,0.2); }
+    }
+  </style>
+</head>
+<body>
+  <div class="icon">🎬</div>
+  <h1>You're Offline</h1>
+  <p>No internet connection. Your saved reels will load once you're back online.</p>
+  <a href="/" class="btn">↩ Back to Vault</a>
+  <div class="card">
+    <p>Reel Vault works as a PWA. Install it on your home screen for the best offline experience.</p>
+  </div>
+</body>
+</html>

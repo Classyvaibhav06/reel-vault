@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎬 Reel Vault
 
-## Getting Started
+A **Next.js 14 PWA** that lets you save Instagram Reels via Android's native share sheet. Google Gemini AI auto-generates a title and 2–3 tags for each reel. All reels are saved to Supabase and shown in a dark, glassmorphism card grid with search and tag filters.
 
-First, run the development server:
+---
+
+## ✨ Features
+
+- 📲 **Web Share Target API** — share any Instagram reel directly from Android's share sheet
+- 🤖 **Gemini AI** — auto-generates a catchy title and 2–3 relevant tags from the URL
+- 🗄️ **Supabase** — all reels persisted in PostgreSQL
+- 🔍 **Search & Filter** — search by title or tag, filter with chip buttons
+- 📴 **Offline Support** — works offline via service worker caching
+- 🌙 **Dark Mode UI** — glassmorphism, gradients, smooth animations
+
+---
+
+## 🚀 Setup
+
+### 1. Clone & Install
+
+```bash
+git clone <your-repo>
+cd reel-storage
+npm install
+```
+
+### 2. Environment Variables
+
+Copy `.env.local.example` to `.env.local` and fill in your keys:
+
+```bash
+cp .env.local.example .env.local
+```
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+GEMINI_API_KEY=AIzaSy...
+```
+
+### 3. Set Up Supabase
+
+1. Go to [supabase.com](https://supabase.com) and create a project
+2. Open the **SQL Editor** and run the contents of `supabase/schema.sql`
+3. Copy your **Project URL** and **anon key** from Settings → API
+
+### 4. Run Locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📦 Deploy (Vercel)
 
-## Learn More
+```bash
+vercel --prod
+```
 
-To learn more about Next.js, take a look at the following resources:
+Add the same env variables in Vercel's dashboard under Settings → Environment Variables.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📲 Install as PWA on Android
 
-## Deploy on Vercel
+1. Open your deployed URL in **Chrome on Android**
+2. Tap the **"Add to Home Screen"** prompt (or Menu → Add to Home Screen)
+3. Open Instagram → Share a reel → tap **Reel Vault** from the share sheet
+4. The reel is automatically saved with AI-generated title and tags! 🎉
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🗂️ Project Structure
+
+```
+src/
+├── app/
+│   ├── layout.tsx           # Root layout with PWA meta tags
+│   ├── page.tsx             # Home page — reel grid, search, filters
+│   ├── globals.css          # Design system — glassmorphism, animations
+│   ├── save/
+│   │   ├── page.tsx         # Save page (Share Target destination)
+│   │   └── SavePageClient.tsx
+│   └── api/
+│       ├── save-reel/route.ts   # POST — calls Gemini, saves to Supabase
+│       └── get-reels/route.ts   # GET — fetch all reels
+├── components/
+│   └── ReelCard.tsx         # Reel card with tags, date, link
+└── lib/
+    └── supabase.ts          # Supabase client + types
+
+public/
+├── manifest.json            # PWA manifest with share_target
+├── offline.html             # Offline fallback page
+└── icon.png                 # App icon
+
+supabase/
+└── schema.sql               # DB schema — run this in Supabase SQL editor
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Tool | Purpose |
+|---|---|
+| Next.js 14 (App Router) | Framework |
+| next-pwa | Service Worker & PWA |
+| Tailwind CSS | Styling |
+| Supabase | Database (PostgreSQL) |
+| Google Gemini | AI title & tag generation |
+| lucide-react | Icons |
+| date-fns | Date formatting |
