@@ -9,7 +9,18 @@ export async function GET() {
 
     const docs = await ReelModel.find({}).sort({ created_at: -1 }).lean();
 
-    const reels: Reel[] = docs.map((doc: any) => {
+    interface RawDoc {
+      _id: any;
+      url: string;
+      title: string;
+      caption?: string;
+      category?: string;
+      thumbnail: string;
+      tags: string[];
+      created_at: Date;
+    }
+
+    const reels: Reel[] = (docs as unknown as RawDoc[]).map((doc) => {
       let category = doc.category || 'Other';
       let needsUpdate = false;
       

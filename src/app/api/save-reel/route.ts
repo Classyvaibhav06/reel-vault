@@ -35,8 +35,8 @@ export async function POST(req: Request) {
       if (ogTitle) fetchedTitle = decode(ogTitle);
       if (ogDescription) fetchedCaption = decode(ogDescription);
       if (ogImage) fetchedThumbnail = ogImage.replace(/&amp;/g, '&');
-    } catch (_e) {
-      console.error('Fetch error:', e);
+    } catch {
+      console.error('Fetch error occurred');
     }
 
     // ── 2. Process with Gemini ──────────────────────────────────────────────
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
             const result = await model.generateContent(prompt);
             aiResult = result.response.text();
             if (aiResult) break;
-          } catch (_e) { }
+          } catch { }
         }
 
         const jsonMatch = aiResult?.match(/\{[\s\S]*\}/);
@@ -73,8 +73,8 @@ export async function POST(req: Request) {
           if (parsed.tags) tags = [...parsed.tags, 'ai-ready']; // Add marker
           if (parsed.caption) caption = parsed.caption;
         }
-      } catch (_e) {
-        console.error('AI Error:', e);
+      } catch {
+        console.error('AI Error processing');
       }
     }
 
