@@ -20,9 +20,13 @@ export default function SaveReelForm({ onSuccess }: SaveReelFormProps) {
     setStatus(null);
 
     try {
+      const token = localStorage.getItem('reel-vault-token');
       const res = await fetch('/api/save-reel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ url: url.trim() }),
       });
 

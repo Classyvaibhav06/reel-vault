@@ -1,13 +1,26 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectToDatabase, ReelModel, Reel } from '@/lib/mongodb';
+import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic'; // Always fresh, never cached
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const auth = getAuthFromRequest(req);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     await connectToDatabase();
 
-    const docs = await ReelModel.find({}).sort({ created_at: -1 }).lean();
+    // Fail-safe: If admin, also show unassigned reels during transition
+    const isAdmin = auth.email === 'admin@gmail.com';
+    const query = isAdmin 
+      ? { $or: [{ userId: new mongoose.Types.ObjectId(auth.userId) }, { userId: { $exists: false } }, { userId: null }] } 
+      : { userId: new mongoose.Types.ObjectId(auth.userId) };
+
+    const docs = await ReelModel.find(query).sort({ created_at: -1 }).lean();
 
     interface RawDoc {
       _id: { toString(): string };

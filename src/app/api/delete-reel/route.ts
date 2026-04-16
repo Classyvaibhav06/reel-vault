@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectToDatabase, ReelModel } from '@/lib/mongodb';
+import { getUserIdFromRequest } from '@/lib/auth';
 
 export async function DELETE(req: Request) {
   try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await req.json();
 
     if (!id) {
@@ -11,7 +18,10 @@ export async function DELETE(req: Request) {
 
     await connectToDatabase();
     
-    const deleted = await ReelModel.findByIdAndDelete(id);
+    const deleted = await ReelModel.findOneAndDelete({ 
+      _id: new mongoose.Types.ObjectId(id), 
+      userId: new mongoose.Types.ObjectId(userId) 
+    });
 
     if (!deleted) {
       return NextResponse.json({ error: 'Reel not found' }, { status: 404 });

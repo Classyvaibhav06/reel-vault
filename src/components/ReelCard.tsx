@@ -23,9 +23,13 @@ const ReelCard: React.FC<ReelCardProps> = ({ reel, onDelete }) => {
 
     setIsDeleting(true);
     try {
+      const token = localStorage.getItem('reel-vault-token');
       const res = await fetch('/api/delete-reel', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ id: reel.id }),
       });
       if (res.ok && onDelete) {

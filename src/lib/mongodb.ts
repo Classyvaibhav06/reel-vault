@@ -37,9 +37,32 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   return cached.conn;
 }
 
+// ── User Schema ─────────────────────────────────────────────────────────────
+
+export interface IUserDocument extends mongoose.Document {
+  email: string;
+  password: string;
+  name?: string;
+  created_at: Date;
+}
+
+const userSchema = new mongoose.Schema<IUserDocument>(
+  {
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    name: { type: String },
+    created_at: { type: Date, default: Date.now },
+  },
+  { timestamps: false }
+);
+
+export const UserModel: mongoose.Model<IUserDocument> =
+  mongoose.models.User || mongoose.model<IUserDocument>('User', userSchema, 'users');
+
 // ── Reel Schema ─────────────────────────────────────────────────────────────
 
 export interface IReelDocument extends mongoose.Document {
+  userId: mongoose.Types.ObjectId;
   url: string;
   title: string;
   caption: string;
@@ -51,6 +74,7 @@ export interface IReelDocument extends mongoose.Document {
 
 const reelSchema = new mongoose.Schema<IReelDocument>(
   {
+    userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     url:       { type: String, required: true },
     title:     { type: String, default: 'Saved Reel' },
     caption:   { type: String, default: '' },
@@ -78,3 +102,4 @@ export type Reel = {
   tags: string[];
   created_at: string;
 };
+

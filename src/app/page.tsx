@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Film, Zap, RefreshCw, X, Tag } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Film, Zap, RefreshCw, X, Tag, LogOut, User as UserIcon } from 'lucide-react';
 import ReelCard from '@/components/ReelCard';
 import SaveReelForm from '@/components/SaveReelForm';
 import { Reel } from '@/lib/mongodb';
@@ -13,27 +14,95 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(null);
+  const router = useRouter();
 
   const categories = ["Movies", "Coding", "Funny", "Education", "Lifestyle", "Gaming", "Other"];
 
-  const fetchReels = async () => {
-    setLoading(true);
-    setError('');
+  const fetchReels = async (manual = false) => {
+    const token = localStorage.getItem('reel-vault-token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    // Show loading state if manual refresh or if we don't have cached data yet
+    if (manual || reels.length === 0) setLoading(true);
+    if (!manual) setError('');
+    
     try {
-      const res = await fetch('/api/get-reels');
-      if (!res.ok) throw new Error('Failed to fetch');
+      const res = await fetch('/api/get-reels', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
+        throw new Error('Failed to fetch');
+      }
       const data = await res.json();
-      setReels(data.reels || []);
+      const freshReels = data.reels || [];
+      
+      setReels(freshReels);
+      
+      // Update local cache
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('reel-vault-cache', JSON.stringify(freshReels));
+      }
     } catch {
-      setError('Could not load your reels. Make sure MongoDB is configured.');
+      // If we have cached data, don't show a hard error, just log it
+      if (reels.length === 0 || manual) {
+        setError('Could not load your reels. Make sure MongoDB is configured.');
+      } else {
+        console.error('Background refresh failed');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // 1. Initial Auth Check
+    const token = localStorage.getItem('reel-vault-token');
+    const storedUser = localStorage.getItem('reel-vault-user');
+    
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+
+    // 2. Try to load from cache immediately on mount
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('reel-vault-cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setReels(parsed);
+            setLoading(false); // We have data
+          }
+        } catch (e) {
+          localStorage.removeItem('reel-vault-cache');
+        }
+      }
+    }
+    
     fetchReels();
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('reel-vault-token');
+    localStorage.removeItem('reel-vault-user');
+    localStorage.removeItem('reel-vault-cache');
+    router.push('/login');
+  };
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -76,14 +145,29 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchReels}
-            disabled={loading}
-            className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-200"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-purple-400' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2 md:gap-4">
+            {user && (
+              <div className="hidden md:flex flex-col items-end mr-2">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">Logged in as</span>
+                <span className="text-xs font-semibold text-zinc-300">{user.name}</span>
+              </div>
+            )}
+            <button
+              onClick={() => fetchReels(true)}
+              disabled={loading}
+              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -103,7 +187,7 @@ export default function HomePage() {
             Share any link to save it here — Gemini auto-categorizes and generates captions for you.
           </p>
         </div>
-        <SaveReelForm onSuccess={fetchReels} />
+        <SaveReelForm onSuccess={() => fetchReels(true)} />
 
         {/* Search */}
         <div className="mb-8 animate-fade-in stagger-2">
@@ -183,7 +267,7 @@ export default function HomePage() {
               <div className="text-4xl mb-3">⚠️</div>
               <p className="text-red-400 font-medium mb-2">{error}</p>
               <p className="text-zinc-500 text-sm mb-5">Check your MONGODB_URI in .env.local</p>
-              <button onClick={fetchReels} className="btn-primary">
+              <button onClick={() => fetchReels(true)} className="btn-primary">
                 <RefreshCw className="w-4 h-4" /> Try Again
               </button>
             </div>
@@ -224,7 +308,7 @@ export default function HomePage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
             {filteredReels.map((reel, i) => (
               <div key={reel.id} className="animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
-                <ReelCard reel={reel} onDelete={fetchReels} />
+                <ReelCard reel={reel} onDelete={() => fetchReels(true)} />
               </div>
             ))}
           </div>

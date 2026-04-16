@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { connectToDatabase, ReelModel } from '@/lib/mongodb';
+import { getUserIdFromRequest } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { url } = await req.json();
 
     if (!url) {
@@ -101,7 +107,7 @@ export async function POST(req: Request) {
 
     // ── 4. Save ────────────────────────────────────────────────────────────
     await connectToDatabase();
-    const newReel = await ReelModel.create({ url, title, caption, category, thumbnail, tags });
+    const newReel = await ReelModel.create({ userId, url, title, caption, category, thumbnail, tags });
 
     return NextResponse.json({
       id: newReel._id.toString(),
