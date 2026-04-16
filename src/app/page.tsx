@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Film, Zap, RefreshCw, X, Tag, LogOut, User as UserIcon } from 'lucide-react';
+import { Search, Film, Zap, RefreshCw, X, Tag, LogOut } from 'lucide-react';
 import ReelCard from '@/components/ReelCard';
 import SaveReelForm from '@/components/SaveReelForm';
 import { Reel } from '@/lib/mongodb';
@@ -19,7 +19,7 @@ export default function HomePage() {
 
   const categories = ["Movies", "Coding", "Funny", "Education", "Lifestyle", "Gaming", "Other"];
 
-  const fetchReels = async (manual = false) => {
+  const fetchReels = useCallback(async (manual = false) => {
     const token = localStorage.getItem('reel-vault-token');
     if (!token) {
       router.push('/login');
@@ -62,7 +62,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reels.length, router]);
 
   useEffect(() => {
     // 1. Initial Auth Check
@@ -88,14 +88,14 @@ export default function HomePage() {
             setReels(parsed);
             setLoading(false); // We have data
           }
-        } catch (e) {
+        } catch {
           localStorage.removeItem('reel-vault-cache');
         }
       }
     }
     
     fetchReels();
-  }, []);
+  }, [fetchReels, router]);
 
   const handleLogout = () => {
     localStorage.removeItem('reel-vault-token');
