@@ -28,7 +28,8 @@ export async function POST(req: Request) {
     const user = await UserModel.create({
       email,
       password: hashedPassword,
-      name: name || email.split('@')[0]
+      name: name || email.split('@')[0],
+      handle: email.split('@')[0] + '_' + Math.random().toString(36).substring(2, 7)
     });
 
     // Generate JWT
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Register API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

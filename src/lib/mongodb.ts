@@ -43,6 +43,7 @@ export interface IUserDocument extends mongoose.Document {
   email: string;
   password: string;
   name?: string;
+  handle?: string;
   created_at: Date;
 }
 
@@ -51,10 +52,16 @@ const userSchema = new mongoose.Schema<IUserDocument>(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     name: { type: String },
+    handle: { type: String, unique: true, sparse: true },
     created_at: { type: Date, default: Date.now },
   },
   { timestamps: false }
 );
+
+// Clear model cache in development to ensure schema changes are applied
+if (process.env.NODE_ENV === 'development') {
+  delete (mongoose.models as any).User;
+}
 
 export const UserModel: mongoose.Model<IUserDocument> =
   mongoose.models.User || mongoose.model<IUserDocument>('User', userSchema, 'users');
