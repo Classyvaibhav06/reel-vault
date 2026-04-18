@@ -60,7 +60,7 @@ const userSchema = new mongoose.Schema<IUserDocument>(
 
 // Clear model cache in development to ensure schema changes are applied
 if (process.env.NODE_ENV === 'development') {
-  delete (mongoose.models as any).User;
+  delete (mongoose.models as Record<string, unknown>).User;
 }
 
 export const UserModel: mongoose.Model<IUserDocument> =

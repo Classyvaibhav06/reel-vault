@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Register API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
