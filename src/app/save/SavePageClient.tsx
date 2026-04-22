@@ -35,9 +35,14 @@ export default function SavePageClient() {
 
     const save = async () => {
       try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('reel-vault-token') : null;
+
         const res = await fetch('/api/save-reel', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ url }),
         });
 
