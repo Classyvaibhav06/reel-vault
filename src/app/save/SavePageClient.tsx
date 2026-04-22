@@ -53,9 +53,9 @@ export default function SavePageClient() {
         }
 
         setSavedData({
-          title: data.data.title,
-          tags: data.data.tags,
-          url: data.data.url,
+          title: data.title,
+          tags: data.tags,
+          url: data.url,
         });
         setStatus('success');
       } catch (err) {
