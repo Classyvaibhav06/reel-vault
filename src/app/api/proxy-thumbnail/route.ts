@@ -39,7 +39,7 @@ async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
       }
       
       if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-    } catch (err: any) {
+    } catch (err) {
       if (i === retries) throw err;
       await new Promise(r => setTimeout(r, 1000 * (i + 1)));
     } finally {
@@ -92,8 +92,8 @@ export async function GET(req: Request) {
       },
     });
 
-  } catch (err: any) {
-    console.error(`[proxy-thumbnail] Proxy failed for ${url.substring(0, 60)}... :`, err.message);
+  } catch (err) {
+    console.error(`[proxy-thumbnail] Proxy failed for ${url.substring(0, 60)}... :`, err instanceof Error ? err.message : String(err));
     // Fallback: If local proxy fails, return a redirect to Google's focus proxy as a last resort
     const fallback = `https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=${encodeURIComponent(url)}`;
     return NextResponse.redirect(fallback);

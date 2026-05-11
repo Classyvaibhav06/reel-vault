@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Play, Calendar, Trash2, Loader2, RefreshCw, ImageOff } from 'lucide-react';
+import { Trash2, Loader2, RefreshCw, ImageOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Reel } from '@/lib/mongodb';
 
@@ -110,7 +110,7 @@ const ReelCard: React.FC<{
         body: JSON.stringify({ id: reel.id }),
       });
       if (onDelete) onDelete(reel.id);
-    } catch (err) { }
+    } catch { }
     finally { setIsDeleting(false); }
   };
 
@@ -127,7 +127,7 @@ const ReelCard: React.FC<{
       if (res.ok && onRefresh) {
         onRefresh(reel.id);
       }
-    } catch (err) { }
+    } catch { }
     finally { setIsRefreshing(false); }
   };
 
