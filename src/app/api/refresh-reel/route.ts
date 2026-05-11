@@ -15,6 +15,7 @@ export async function POST(req: Request) {
     }
 
     await connectToDatabase();
+    // Use userId in the query to ensure user ownership
     const reel = await ReelModel.findOne({ _id: id, userId });
     if (!reel) {
       return NextResponse.json({ error: 'Reel not found' }, { status: 404 });
@@ -34,19 +35,22 @@ export async function POST(req: Request) {
           'Accept': 'text/html',
         },
       });
-      const html = await response.text();
+      
+      if (response.ok) {
+        const html = await response.text();
 
-      const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i)?.[1];
-      const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i)?.[1];
-      const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i)?.[1];
+        const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i)?.[1];
+        const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i)?.[1];
+        const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i)?.[1];
 
-      const decode = (str: string) => str
-        .replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'")
-        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x2026;/g, '...');
+        const decode = (str: string) => str
+          .replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'")
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x2026;/g, '...');
 
-      if (ogTitle) fetchedTitle = decode(ogTitle);
-      if (ogDescription) fetchedCaption = decode(ogDescription);
-      if (ogImage) fetchedThumbnail = ogImage.replace(/&amp;/g, '&');
+        if (ogTitle) fetchedTitle = decode(ogTitle);
+        if (ogDescription) fetchedCaption = decode(ogDescription);
+        if (ogImage) fetchedThumbnail = ogImage.replace(/&amp;/g, '&');
+      }
     } catch (err) {
       console.error('Fetch error during refresh:', err);
     }
@@ -58,7 +62,12 @@ export async function POST(req: Request) {
     let tags = reel.tags;
     let thumbnail = fetchedThumbnail || reel.thumbnail;
 
-    const cleanText = (t: string) => t.replace(/^[0-9,]+ likes, [0-9,]+ comments - /i, '').replace(/on Instagram: /i, '').replace(/Instagram/i, '').replace(/^"|"$/g, '').trim();
+    const cleanText = (t: string) => (t || '')
+      .replace(/^[0-9,]+ likes, [0-9,]+ comments - /i, '')
+      .replace(/on Instagram: /i, '')
+      .replace(/Instagram/i, '')
+      .replace(/^"|"$/g, '')
+      .trim();
 
     const groqApiKey = process.env.GROQ_API_KEY;
     if (groqApiKey && (fetchedTitle || fetchedCaption)) {
@@ -81,18 +90,29 @@ export async function POST(req: Request) {
           }),
         });
 
+        if (!response.ok) {
+          throw new Error(`Groq API error: ${response.status}`);
+        }
+
         const data = await response.json();
-        const aiResult = data.choices?.[0]?.message?.content;
+        let aiResult = data.choices?.[0]?.message?.content;
 
         if (aiResult) {
+          // Robust JSON extraction (removes markdown backticks if present)
+          aiResult = aiResult.replace(/```json\s?|```/g, '').trim();
           const parsed = JSON.parse(aiResult);
+          
           if (parsed.title) title = cleanText(parsed.title);
           if (parsed.category) category = parsed.category;
-          if (parsed.tags) tags = Array.from(new Set([...parsed.tags, 'ai-ready', ...reel.tags]));
           if (parsed.caption) caption = parsed.caption;
+          
+          // Ensure tags are an array and filter out empty strings
+          const aiTags = Array.isArray(parsed.tags) ? parsed.tags : [];
+          tags = Array.from(new Set([...aiTags, 'ai-ready', ...(reel.tags || [])])).filter(Boolean);
         }
       } catch (err) {
         console.error('Groq AI Error during refresh:', err);
+        // Fall back to original/fetched values on AI error
       }
     }
 
@@ -106,11 +126,15 @@ export async function POST(req: Request) {
     }
 
     // ── 4. Update Database ─────────────────────────────────────────────────
-    const updatedReel = await ReelModel.findByIdAndUpdate(
-      id,
+    const updatedReel = await ReelModel.findOneAndUpdate(
+      { _id: id, userId }, // Extra safety check on update
       { title, caption, category, thumbnail, tags },
       { new: true }
     );
+
+    if (!updatedReel) {
+      return NextResponse.json({ error: 'Reel update failed or not found' }, { status: 404 });
+    }
 
     return NextResponse.json({
       id: updatedReel._id.toString(),
@@ -127,3 +151,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
