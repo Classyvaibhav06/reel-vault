@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-// import { GoogleGenerativeAI } from '@google/generative-ai';
-
 import { connectToDatabase, ReelModel } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 
@@ -11,13 +9,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { url } = await req.json();
-
-    if (!url) {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+    const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ error: 'Reel ID is required' }, { status: 400 });
     }
 
-    // ── 1. Fetch metadata ──────────────────────────────────────────────────
+    await connectToDatabase();
+    const reel = await ReelModel.findOne({ _id: id, userId });
+    if (!reel) {
+      return NextResponse.json({ error: 'Reel not found' }, { status: 404 });
+    }
+
+    const url = reel.url;
+
+    // ── 1. Fetch metadata from Instagram ─────────────────────────────────────
     let fetchedTitle = '';
     let fetchedCaption = '';
     let fetchedThumbnail = '';
@@ -42,21 +47,21 @@ export async function POST(req: Request) {
       if (ogTitle) fetchedTitle = decode(ogTitle);
       if (ogDescription) fetchedCaption = decode(ogDescription);
       if (ogImage) fetchedThumbnail = ogImage.replace(/&amp;/g, '&');
-    } catch {
-      console.error('Fetch error occurred');
+    } catch (err) {
+      console.error('Fetch error during refresh:', err);
     }
 
-    // ── 2. Process with Gemini ──────────────────────────────────────────────
-    let title = fetchedTitle || 'Saved Reel';
-    let caption = fetchedCaption || '';
-    let category = 'Other';
-    let tags: string[] = ['reel'];
-    let thumbnail = fetchedThumbnail || '';
+    // ── 2. Process with Groq AI ──────────────────────────────────────────────
+    let title = fetchedTitle || reel.title;
+    let caption = fetchedCaption || reel.caption;
+    let category = reel.category;
+    let tags = reel.tags;
+    let thumbnail = fetchedThumbnail || reel.thumbnail;
 
     const cleanText = (t: string) => t.replace(/^[0-9,]+ likes, [0-9,]+ comments - /i, '').replace(/on Instagram: /i, '').replace(/Instagram/i, '').replace(/^"|"$/g, '').trim();
 
     const groqApiKey = process.env.GROQ_API_KEY;
-    if (groqApiKey) {
+    if (groqApiKey && (fetchedTitle || fetchedCaption)) {
       try {
         const prompt = `Categorize this Instagram content into: Movies, Coding, Funny, Education, Lifestyle, Gaming, or Other. Rules: "Coding" for any tech/programming. Return JSON: {"title":"Clean title","caption":"2-sentence summary","category":"CategoryName","tags":["tag1","tag2"]}. Context: Title: ${fetchedTitle}, Caption: ${fetchedCaption}`;
         
@@ -69,14 +74,8 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             model: 'llama-3.3-70b-versatile',
             messages: [
-              {
-                role: 'system',
-                content: 'You are a helpful assistant that returns data in JSON format.'
-              },
-              {
-                role: 'user',
-                content: prompt
-              }
+              { role: 'system', content: 'You are a helpful assistant that returns data in JSON format.' },
+              { role: 'user', content: prompt }
             ],
             response_format: { type: 'json_object' }
           }),
@@ -89,52 +88,42 @@ export async function POST(req: Request) {
           const parsed = JSON.parse(aiResult);
           if (parsed.title) title = cleanText(parsed.title);
           if (parsed.category) category = parsed.category;
-          if (parsed.tags) tags = [...parsed.tags, 'ai-ready'];
+          if (parsed.tags) tags = Array.from(new Set([...parsed.tags, 'ai-ready', ...reel.tags]));
           if (parsed.caption) caption = parsed.caption;
         }
       } catch (err) {
-        console.error('Groq AI Error processing:', err);
+        console.error('Groq AI Error during refresh:', err);
       }
     }
-
 
     // ── 3. Final Fallback & Normalization ──────────────────────────────────
     title = cleanText(title);
     caption = cleanText(caption);
     
-    // Force Capitalization
-    category = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
-    const validCats = ["Movies", "Coding", "Funny", "Education", "Lifestyle", "Gaming", "Other"];
-    
-    if (!validCats.includes(category) || category === "Other") {
-      const combined = (title + " " + caption).toLowerCase();
-      if (combined.includes('code') || combined.includes('dev') || combined.includes('software') || combined.includes('python') || combined.includes('vs code')) {
-        category = "Coding";
-      }
-    }
-
-    if (!caption || caption.length < 5) caption = `Saved in ${category}.`;
     if (!thumbnail) {
       const match = url.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/);
       if (match) thumbnail = `https://www.instagram.com/p/${match[2]}/media/?size=l`;
     }
 
-    // ── 4. Save ────────────────────────────────────────────────────────────
-    await connectToDatabase();
-    const newReel = await ReelModel.create({ userId, url, title, caption, category, thumbnail, tags });
+    // ── 4. Update Database ─────────────────────────────────────────────────
+    const updatedReel = await ReelModel.findByIdAndUpdate(
+      id,
+      { title, caption, category, thumbnail, tags },
+      { new: true }
+    );
 
     return NextResponse.json({
-      id: newReel._id.toString(),
-      url: newReel.url,
-      title: newReel.title,
-      caption: newReel.caption,
-      category: newReel.category,
-      thumbnail: newReel.thumbnail,
-      tags: newReel.tags,
-      created_at: newReel.created_at.toISOString(),
+      id: updatedReel._id.toString(),
+      url: updatedReel.url,
+      title: updatedReel.title,
+      caption: updatedReel.caption,
+      category: updatedReel.category,
+      thumbnail: updatedReel.thumbnail,
+      tags: updatedReel.tags,
+      updated_at: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Save Reel API Error:', error);
+    console.error('Refresh Reel API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

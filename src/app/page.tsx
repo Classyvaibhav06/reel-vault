@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Film, Zap, RefreshCw, X, Tag, LogOut } from 'lucide-react';
+import { Search, Film, Zap, RefreshCw, X, Tag, LogOut, ImageOff } from 'lucide-react';
 import ReelCard from '@/components/ReelCard';
 import SaveReelForm from '@/components/SaveReelForm';
 import { Reel } from '@/lib/mongodb';
@@ -14,7 +14,11 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeDateFilter, setActiveDateFilter] = useState<string | null>(null);
   const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(null);
+
+  const [failedThumbs, setFailedThumbs] = useState<Set<string>>(new Set());
+  const [thumbRetryKey, setThumbRetryKey] = useState(0);
   const router = useRouter();
 
   const categories = ["Movies", "Coding", "Funny", "Education", "Lifestyle", "Gaming", "Other"];
@@ -104,6 +108,31 @@ export default function HomePage() {
     router.push('/login');
   };
 
+  const handleSyncAll = async () => {
+    if (!reels.length || loading) return;
+    if (!confirm('This will refetch metadata from Instagram for ALL your reels. It might take a while. Continue?')) return;
+    
+    setLoading(true);
+    const token = localStorage.getItem('reel-vault-token');
+    
+    // Process in small batches to avoid hitting rate limits too fast
+    for (const reel of reels) {
+      try {
+        await fetch('/api/refresh-reel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ id: reel.id }),
+        });
+      } catch (err) {
+        console.error(`Failed to refresh reel ${reel.id}`, err);
+      }
+    }
+    
+    await fetchReels(true);
+    setLoading(false);
+  };
+
+
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
     reels.forEach(r => r.tags.forEach(t => tagSet.add(t)));
@@ -122,9 +151,24 @@ export default function HomePage() {
       const matchesTag = !activeTag || reel.tags.includes(activeTag);
       const matchesCategory = !activeCategory || reel.category === activeCategory;
       
-      return matchesSearch && matchesTag && matchesCategory;
+      let matchesDate = true;
+      if (activeDateFilter) {
+        const now = new Date();
+        const created = new Date(reel.created_at);
+        const diffMs = now.getTime() - created.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+        if (activeDateFilter === '1 Day') matchesDate = diffDays <= 1;
+        else if (activeDateFilter === '3 Days') matchesDate = diffDays <= 3;
+        else if (activeDateFilter === '1 Week') matchesDate = diffDays <= 7;
+        else if (activeDateFilter === '3 Weeks') matchesDate = diffDays <= 21;
+        else if (activeDateFilter === '1 Month') matchesDate = diffDays <= 30;
+      }
+      
+      return matchesSearch && matchesTag && matchesCategory && matchesDate;
     });
-  }, [reels, searchQuery, activeTag, activeCategory]);
+  }, [reels, searchQuery, activeTag, activeCategory, activeDateFilter]);
+
 
   return (
     <div className="min-h-screen">
@@ -153,10 +197,18 @@ export default function HomePage() {
               </div>
             )}
             <button
+              onClick={handleSyncAll}
+              disabled={loading}
+              className="p-2 rounded-lg text-zinc-400 hover:text-purple-400 hover:bg-purple-500/5 transition-all duration-200"
+              title="Sync All Metadata from Instagram"
+            >
+              <Zap className={`w-4 h-4 ${loading ? 'animate-pulse' : ''}`} />
+            </button>
+            <button
               onClick={() => fetchReels(true)}
               disabled={loading}
               className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-200"
-              title="Refresh"
+              title="Refresh List"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-purple-400' : ''}`} />
             </button>
@@ -168,6 +220,7 @@ export default function HomePage() {
               <LogOut className="w-4 h-4" />
             </button>
           </div>
+
         </div>
       </header>
 
@@ -211,6 +264,25 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Date Filter Chips */}
+        <div className="flex flex-wrap gap-2 mb-4 animate-fade-in stagger-3">
+          <button
+            onClick={() => setActiveDateFilter(null)}
+            className={`tag-chip ${!activeDateFilter ? 'tag-chip-active' : ''} cursor-pointer text-[10px]`}
+          >
+            All Time
+          </button>
+          {["1 Day", "3 Days", "1 Week", "3 Weeks", "1 Month"].map(label => (
+            <button
+              key={label}
+              onClick={() => setActiveDateFilter(activeDateFilter === label ? null : label)}
+              className={`tag-chip cursor-pointer text-[10px] ${activeDateFilter === label ? 'tag-chip-active' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Category Filter Chips */}
         <div className="flex flex-wrap gap-2 mb-8 animate-fade-in stagger-3">
           <button
@@ -229,6 +301,7 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+
 
         {/* Tag Filter Chips */}
         {allTags.length > 0 && (
@@ -305,13 +378,46 @@ export default function HomePage() {
 
         {/* Reel Grid */}
         {!loading && !error && filteredReels.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
-            {filteredReels.map((reel, i) => (
-              <div key={reel.id} className="animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
-                <ReelCard reel={reel} onDelete={() => fetchReels(true)} />
+          <>
+            {/* Thumbnail failure banner */}
+            {failedThumbs.size > 0 && (
+              <div className="mb-5 flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-purple-500/30 animate-fade-in"
+                   style={{ background: 'rgba(168,85,247,0.08)' }}>
+                <div className="flex items-center gap-2.5">
+                  <ImageOff className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                  <p className="text-xs text-zinc-300">
+                    <span className="font-bold text-purple-300">{failedThumbs.size}</span>
+                    {' '}thumbnail{failedThumbs.size !== 1 ? 's' : ''} couldn&apos;t load
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setFailedThumbs(new Set());
+                    setThumbRetryKey(k => k + 1);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-purple-300 bg-purple-500/15 border border-purple-500/40 hover:bg-purple-500/25 transition-all duration-200 active:scale-95 whitespace-nowrap flex-shrink-0"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Refresh All
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+              {filteredReels.map((reel, i) => (
+                <div key={reel.id} className="animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
+                  <ReelCard
+                    reel={reel}
+                    onDelete={() => fetchReels(true)}
+                    onRefresh={() => fetchReels(true)}
+                    onThumbnailError={(id) => setFailedThumbs(prev => new Set(prev).add(id))}
+                    forceRetryKey={thumbRetryKey}
+                  />
+                </div>
+
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
